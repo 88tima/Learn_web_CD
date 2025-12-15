@@ -1,0 +1,22 @@
+apiVersion : apps/v1
+kind : Deployment
+metadata:
+  name: case_change_deploy
+  labels:
+    app : case_change
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      project: cd
+  template:
+    metadata:
+      labels:
+        project: cd
+    spec:
+      containers:
+      - name : cd-case_change
+        image: 88tima/case_change:latest
+        ports:
+          - containerPort: 5000
+          
