@@ -38,9 +38,7 @@ pipeline {
                                     \${REMOTE_USER}@\${IP_FOR_REMOTE} '
                                         echo "Starting Minikube..." &&
                                         minikube delete 2>/dev/null || true &&
-                                        minikube start --driver=docker &&
-                                        echo "Minikube is ready. Waiting for control-plane..." &&
-                                        minikube status --wait=all --timeout=180s
+                                        minikube start --driver=docker
                                     '
                             """
                         }
@@ -110,4 +108,5 @@ pipeline {
         }
     }
 }
+
 
