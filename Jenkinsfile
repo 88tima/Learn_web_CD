@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        SCRIPT_NAME = 'deployment_case_change.yaml'  // ← теперь это манифест
+        SCRIPT_NAME = 'deployment_case_change.yaml'
     }
     stages {
         stage('Connecting to the server Ubuntu') {
@@ -23,7 +23,33 @@ pipeline {
                 }
             }
         }
-        stage('Copying the Kubernetes manifest to the server') {
+
+        stage('Start Minikube on remote server') {
+            steps {
+                script {
+                    withCredentials([
+                        string(credentialsId: 'SSH_PORT', variable: 'SSH_PORT'),
+                        string(credentialsId: 'IP_FOR_REMOTE', variable: 'IP_FOR_REMOTE'),
+                        string(credentialsId: 'REMOTE_USER', variable: 'REMOTE_USER')
+                    ]) {
+                        sshagent (credentials: ['ubuntu-ssh']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no -p \${SSH_PORT} \
+                                    \${REMOTE_USER}@\${IP_FOR_REMOTE} '
+                                        echo "Starting Minikube..." &&
+                                        minikube delete 2>/dev/null || true &&
+                                        minikube start --driver=docker --listen-address=0.0.0.0 --port=8443 &&
+                                        echo "Minikube is ready. Waiting for control-plane..." &&
+                                        minikube status --wait=all --timeout=180s
+                                    '
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Copy Kubernetes manifest to server') {
             steps {
                 script {
                     withCredentials([
@@ -42,7 +68,8 @@ pipeline {
                 }
             }
         }
-        stage('Applying the Kubernetes manifest') {
+
+        stage('Apply Kubernetes manifest') {
             steps {
                 script {
                     withCredentials([
@@ -53,9 +80,10 @@ pipeline {
                         sshagent (credentials: ['ubuntu-ssh']) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no -p \${SSH_PORT} \
-                                    \${REMOTE_USER}@\${IP_FOR_REMOTE} "
+                                    \${REMOTE_USER}@\${IP_FOR_REMOTE} '
+                                        export KUBECONFIG=/home/\${USER}/.kube/config &&
                                         kubectl apply -f /tmp/${SCRIPT_NAME}
-                                    "
+                                    '
                             """
                         }
                     }
@@ -63,6 +91,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             withCredentials([
